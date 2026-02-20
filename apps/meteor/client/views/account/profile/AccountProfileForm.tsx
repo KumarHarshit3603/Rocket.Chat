@@ -1,4 +1,4 @@
-import type { IUser } from '@rocket.chat/core-typings';
+import type { AvatarObject, IUser } from '@rocket.chat/core-typings';
 import { css } from '@rocket.chat/css-in-js';
 import {
 	Field,
@@ -129,7 +129,17 @@ const AccountProfileForm = (props: AllHTMLAttributes<HTMLFormElement>): ReactEle
 		} catch (error) {
 			dispatchToastMessage({ type: 'error', message: error });
 		} finally {
-			reset({ email, name, username, statusType, statusText, nickname, bio, customFields });
+			reset({
+				email,
+				name,
+				username,
+				statusType,
+				statusText,
+				nickname,
+				bio,
+				customFields,
+				avatar: '' as AvatarObject,
+			});
 		}
 	};
 
@@ -150,13 +160,14 @@ const AccountProfileForm = (props: AllHTMLAttributes<HTMLFormElement>): ReactEle
 					<Controller
 						control={control}
 						name='avatar'
-						render={({ field: { onChange } }) => (
+						render={({ field: { value, onChange } }) => (
 							<UserAvatarEditor
 								etag={user?.avatarETag}
 								currentUsername={user?.username}
 								name={userFullName}
 								username={username}
 								setAvatarObj={onChange}
+								avatarFormValue={value}
 								disabled={!allowUserAvatarChange}
 							/>
 						)}

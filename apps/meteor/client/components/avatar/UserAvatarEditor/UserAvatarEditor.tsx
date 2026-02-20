@@ -3,7 +3,7 @@ import { Box, Button, Avatar, TextInput, IconButton, Label } from '@rocket.chat/
 import { UserAvatar } from '@rocket.chat/ui-avatar';
 import { useToastMessageDispatch, useSetting } from '@rocket.chat/ui-contexts';
 import type { ReactElement, ChangeEvent } from 'react';
-import { useId, useState, useCallback } from 'react';
+import { useId, useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { UserAvatarSuggestion } from './UserAvatarSuggestion';
@@ -12,23 +12,35 @@ import { readFileAsDataURL } from './readFileAsDataURL';
 import { useSingleFileInput } from '../../../hooks/useSingleFileInput';
 import { isValidImageFormat } from '../../../lib/utils/isValidImageFormat';
 
+const INITIAL_AVATAR_VALUE = '' as AvatarObject;
+
 type UserAvatarEditorProps = {
 	currentUsername: IUser['username'];
 	username: IUser['username'];
 	setAvatarObj: (obj: AvatarObject) => void;
+	avatarFormValue?: AvatarObject;
 	disabled?: boolean;
 	etag: IUser['avatarETag'];
 	name: IUser['name'];
 };
 
-function UserAvatarEditor({ currentUsername, username, setAvatarObj, name, disabled, etag }: UserAvatarEditorProps): ReactElement {
+function UserAvatarEditor({
+	currentUsername,
+	username,
+	setAvatarObj,
+	avatarFormValue = INITIAL_AVATAR_VALUE,
+	name,
+	disabled,
+	etag,
+}: UserAvatarEditorProps): ReactElement {
 	const { t } = useTranslation();
 	const useFullNameForDefaultAvatar = useSetting('UI_Use_Name_Avatar');
 	const rotateImages = useSetting('FileUpload_RotateImages');
 	const [avatarFromUrl, setAvatarFromUrl] = useState('');
-	const [newAvatarSource, setNewAvatarSource] = useState<string>();
+	const [newAvatarSource, setNewAvatarSource] = useState<string | undefined>(undefined);
 	const imageUrlField = useId();
 	const dispatchToastMessage = useToastMessageDispatch();
+	const resetFileInputRef = useRef<() => void>(() => {});
 
 	const setUploadedPreview = useCallback(
 		async (file: File, avatarObj: AvatarObject) => {
@@ -41,12 +53,22 @@ function UserAvatarEditor({ currentUsername, username, setAvatarObj, name, disab
 				}
 			} catch (error) {
 				dispatchToastMessage({ type: 'error', message: t('Avatar_format_invalid') });
+			} finally {
+				resetFileInputRef.current();
 			}
 		},
 		[setAvatarObj, t, dispatchToastMessage],
 	);
 
-	const [clickUpload] = useSingleFileInput(setUploadedPreview);
+	const [clickUpload, resetFileInput] = useSingleFileInput(setUploadedPreview);
+	resetFileInputRef.current = resetFileInput;
+
+	useEffect(() => {
+		if (avatarFormValue === INITIAL_AVATAR_VALUE) {
+			setNewAvatarSource(undefined);
+			setAvatarFromUrl('');
+		}
+	}, [avatarFormValue]);
 
 	const handleAddUrl = (): void => {
 		setNewAvatarSource(avatarFromUrl);
@@ -59,6 +81,7 @@ function UserAvatarEditor({ currentUsername, username, setAvatarObj, name, disab
 	};
 
 	const url = newAvatarSource;
+	const avatarKey = url ?? `saved-${etag ?? 'initials'}`;
 
 	const handleAvatarFromUrlChange = (event: ChangeEvent<HTMLInputElement>): void => {
 		setAvatarFromUrl(event.currentTarget.value);
@@ -79,7 +102,7 @@ function UserAvatarEditor({ currentUsername, username, setAvatarObj, name, disab
 				<UserAvatar
 					size='x124'
 					url={url}
-					key={url}
+					key={avatarKey}
 					alt={t('__username__profile_picture', { username: currentUsername || 'user' })}
 					username={currentUsername || ''}
 					etag={etag}
